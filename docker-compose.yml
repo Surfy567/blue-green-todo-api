@@ -1,0 +1,38 @@
+
+services:
+  todo-blue:
+    build: .
+    container_name: todo-blue
+    ports:
+      - "3010:3000"
+    networks:
+      - todo-net
+    environment:
+      - VERSION=BLUE
+
+  todo-green:
+    build: .
+    container_name: todo-green
+    ports:
+      - "3020:3000"
+    networks:
+      - todo-net
+    environment:
+      - VERSION=GREEN
+
+  nginx:
+    image: nginx
+    container_name: todo-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - todo-blue
+      - todo-green
+    networks:
+      - todo-net
+
+networks:
+  todo-net:
+    driver: bridge
