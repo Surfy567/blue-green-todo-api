@@ -2,52 +2,49 @@
 
 set -e
 
-# Accept environment name (blue or green)
-ENV=$1
+echo "Starting Blue-Green Deployment..."
 
-if [[ "$ENV" != "blue" && "$ENV" != "green" ]]; then
-  echo "Usage: ./deploy.sh [blue|green]"
+BLUE_RUNNING=$(docker ps --filter "name=blue" --format "{{.Names}}")
+
+if [ -n "$BLUE_RUNNING" ]; then
+  COLOR="green"
+  OLD_COLOR="blue"
+else
+  COLOR="blue"
+  OLD_COLOR="green"
+fi
+
+echo "New deployment will be: $COLOR"
+echo "Old version (if running): $OLD_COLOR"
+
+
+docker-compose -f docker-compose.$COLOR.yml up -d --build
+
+
+echo "🔍 Running health check on new deployment..."
+for i in {1..10}; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/todos || true)
+  if [ "$STATUS" == "200" ]; then
+    echo "Health check passed."
+    break
+  fi
+  echo "Waiting for $COLOR container to become healthy... ($i/10)"
+  sleep 3
+done
+
+if [ "$STATUS" != "200" ]; then
+  echo "Health check failed for $COLOR. Aborting deployment."
+  docker-compose -f docker-compose.$COLOR.yml down
   exit 1
 fi
 
-TARGET="todo-$ENV"
 
-echo "Validating Nginx upstream to point to: $TARGET:3000"
+echo "Swapping traffic to $COLOR..."
+sudo cp ./nginx/$COLOR.conf /etc/nginx/conf.d/default.conf
+sudo nginx -s reload
 
-# Update Nginx config
-cat > ./nginx/nginx.conf <<EOF
-events {}
 
-http {
-    upstream todo-app {
-        server $TARGET:3000;
-    }
+echo "Stopping old container: $OLD_COLOR"
+docker-compose -f docker-compose.$OLD_COLOR.yml down
 
-    server {
-        listen 80;
-
-        location / {
-            proxy_pass http://todo-app;
-        }
-
-        location /health {
-            proxy_pass http://todo-app/health;
-        }
-    }
-}
-EOF
-
-echo "Cleaning up old containers if any..."
-docker rm -f todo-blue todo-green todo-proxy 2>/dev/null || true
-
-echo "Rebuilding and launching containers..."
-docker-compose up -d --build
-
-echo "Reloading Nginx config..."
-docker exec todo-proxy nginx -s reload
-
-echo "Verifying health endpoint for $TARGET..."
-docker exec todo-proxy curl -sf http://$TARGET:3000/health && echo "$TARGET is healthy" || {
-  echo "$TARGET failed health check"
-  exit 1
-}
+echo "Deployment complete."
