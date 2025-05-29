@@ -1,10 +1,10 @@
-# Blue Green ToDo API
+# Blue-Green CI/CD with GitHub Actions & Docker Compose
 
 ## Overview
 
-This repository contains a simple Node.js To-Do API application configured for Blue-Green deployment using Docker and GitHub Actions. The project demonstrates a fully automated CI/CD pipeline with zero downtime deployment on a self-hosted runner.
+This project implements a simple CI/CD pipeline using GitHub Actions to deploy a Node.js To-Do API using Docker Compose. It sets up a basic blue-green deployment structure using two app containers (todo-blue and todo-green) behind an Nginx reverse proxy (todo-proxy).
 
-The Blue-Green deployment strategy ensures that new versions of the application can be released safely by switching traffic between two identical environments (**blue** and **green**), minimizing risks and downtime.
+Currently, automatic switching between environments and health checks are **not yet implemented**. All containers are rebuilt and restarted on every deployment.
 
 
 ## Features
@@ -15,32 +15,36 @@ The Blue-Green deployment strategy ensures that new versions of the application 
 
 - Blue-Green deployment using Docker containers.
 
+- Nginx reverse proxy (todo-proxy) routes traffic to the active environment.
+
 - Fully automated CI/CD pipeline with GitHub Actions.
 
 - Deployment on a self-hosted runner environment.
 
-- Automated health checks before traffic switch.
+
 
 
 
 
 ## Architecture
 
-- Blue environment: One instance of the app running Docker container.
+- **Blue environment**: One instance of the app running Docker container.
 
-- Green environment: Second instance, identical to Blue, updated during deployment.
+- **Green environment**: Second instance, identical to Blue, updated during deployment.
 
-- GitHub Actions: Workflow triggers on push to **main** branch, builds, tests, deploys, performs health check, then switches traffic.
+- **Nginx Reverse Proxy**: Serves as the entry point and routes traffic to the active environment (either blue or green).
 
-- Self-hosted runner: Executes the workflow on a dedicated machine/VM.
+- **GitHub Actions**: Workflow triggers on push to **main** branch, builds, tests, deploys, performs health check, then switches traffic.
+
+- **Self-hosted runner**: Executes the workflow on a dedicated machine/VM.
 
   
 
 ## Prerequisites
 
-- Docker is installed on the deployment host.
+- Docker and Docker Compose installed on the deployment host.
 
-- Node.js is installed for local development.
+- Node.js installed for local development.
 
 - GitHub repository with Actions enabled.
 
@@ -69,35 +73,37 @@ The Blue-Green deployment strategy ensures that new versions of the application 
 
  The GitHub Actions workflow **deploy.yml** runs on every push to **main** and performs the following:
 
-1. Builds the Docker image for the new version.
+1. Checks out the latest code.
 
-2. Deploys the container to the inactive environment (blue or green).
+2. Installs the Docker Compose plugin on the self-hosted runner.
 
-3. Runs automated health checks on the new environment.
+3. Stops and removes existing containers (blue, green, and proxy).
 
-4. If successful, switches the traffic to the new environment.
+4. Rebuilds and redeploys all containers using Docker Compose.
 
-5. Cleans up the old environment.
+5. Traffic is served via Nginx based on static configuration.
+
+At this stage, the pipeline does not alternate environments, perform health checks, or dynamically switch traffic. These are planned improvements.
 
 
 ## Deployment details
 
-- The pipeline uses tags **blue** and **green** to deploy alternating environments.
+- All containers (todo-blue, todo-green, and todo-proxy) are rebuilt and redeployed on every run.
 
-- Health checks ensure the new deployment is healthy before switching traffic.
+- Nginx (todo-proxy) statically routes traffic to either the blue or green container — this is configured manually in nginx/nginx.conf.
 
-- The active environment is exposed on port 3000 for end-users.
+- The app is accessible on port 3000 via the reverse proxy.
 
-- The entire process ensures zero downtime.
+- This setup currently results in minimal downtime, but is not yet zero-downtime.
 
 
  ## Troubleshooting
 
- - Ensure Docker daemon is running on your deployment machine.
+- Ensure Docker Daemon is running on your deployment machine.
 
-- Verify self-hosted runner is active and connected.
+- Verify the self-hosted runner is active and connected to your repo.
 
-- Check port 3000 is not blocked or used by another app.
+- Make sure port 3000 is not blocked or in use by another app.
 
 - Review GitHub Actions logs for deployment failures.
 
