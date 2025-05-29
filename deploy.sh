@@ -47,7 +47,7 @@ echo "Reloading Nginx config..."
 docker exec todo-proxy nginx -s reload
 
 echo "Verifying health endpoint for $TARGET..."
-docker exec todo-proxy curl -sf http://$TARGET:3000/health && echo "✅ $TARGET is healthy" || {
+docker exec todo-proxy curl -sf http://$TARGET:3000/health && echo "$TARGET is healthy" || {
   echo "$TARGET failed health check"
   exit 1
 }
