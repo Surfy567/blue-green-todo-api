@@ -14,18 +14,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Compose
+      - name: Install Docker Compose plugin
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
+          sudo apt-get update -o Acquire::Retries=3 || true
+          sudo apt-get install -y docker-compose-plugin
 
       - name: Stop and remove existing containers
         run: |
-          docker-compose down --remove-orphans || true
+          docker compose down --remove-orphans || true
           docker rm -f todo-blue todo-green todo-proxy || true
         working-directory: ${{ github.workspace }}
 
       - name: Rebuild and redeploy containers
         run: |
-          docker-compose up -d --build
+          docker compose up -d --build
         working-directory: ${{ github.workspace }}
